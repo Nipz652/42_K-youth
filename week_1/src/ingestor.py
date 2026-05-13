@@ -3,6 +3,7 @@ from pathlib import Path
 def ingest_all_mhtml(input_dir, output_dir): 
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     total, extracted, failed = 0, 0, 0
 
