@@ -32,9 +32,6 @@ def run_bronze():
     ingest_all_mhtml(input_dir, output_dir)
     
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python main.py <command>")
-        return
 
     command = sys.argv[1]
 
@@ -46,8 +43,14 @@ def main():
         run_gold()
     elif command == "profile":
         run_profiler()
+    elif command == "all":
+        run_bronze()
+        run_silver()
+        run_gold()
+        run_profiler()
     else:
-        print(f"Unknown command: {command}")
+        print("Usage: python main.py [ingest|process|load|profile|all]")
+
 
 if __name__ == "__main__":
     main()

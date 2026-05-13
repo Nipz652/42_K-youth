@@ -4,8 +4,6 @@ from pydantic import BaseModel
 import json
 import quopri
 
-MIN_DESCRIPTION_LENGTH = 1000
-
 class JobListing(BaseModel):
     source_id: str
     job_title: str
@@ -43,14 +41,7 @@ def process_all_html(input_dir, output_dir):
             description = desc_tag.get_text(separator=" ", strip=True) if desc_tag else None
  
             company_tag = soup.find(attrs={"data-automation": "advertiser-name"})
-            if company_tag:
-                company = company_tag.get_text(separator=" ", strip=True) or None
-            else:
-                profile_tag = soup.find(attrs={"data-automation": "company-profile"})
-                company = next(profile_tag.stripped_strings, None) if profile_tag else None
-
-            if description and len(description) < MIN_DESCRIPTION_LENGTH:
-                description = None
+            company = company_tag.get_text(separator=" ", strip=True) or None
 
             if source_id and job_title and company and description:
                 job_listing = JobListing(
