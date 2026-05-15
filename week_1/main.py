@@ -4,12 +4,18 @@ from src.ingestor import ingest_all_mhtml
 from src.processor import process_all_html
 from src.loader import load_all_jsons
 from src.profiler import run_data_profile
+import logging
 
 SOURCE_DIR = Path("data/0_source")
 BRONZE_DIR = Path("data/1_bronze")
 SILVER_DIR = Path("data/2_silver")
 GOLD_DIR = Path("data/3_gold")
 DB_NAME = "jobs.db"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s |%(levelname)s |%(message)s"
+)
 
 def run_profiler():
     db_path = GOLD_DIR/DB_NAME
@@ -32,6 +38,10 @@ def run_bronze():
     ingest_all_mhtml(input_dir, output_dir)
     
 def main():
+
+    if len(sys.argv) < 2:
+        print("Usage: python main.py [ingest|process|load|profile|all]")
+        return
 
     command = sys.argv[1]
 

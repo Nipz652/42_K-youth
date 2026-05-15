@@ -1,6 +1,8 @@
 from pathlib import Path
 import sqlite3
 import json
+import hashlib
+import logging
 
 def load_all_jsons(input_dir, output_dir): 
     input_dir = Path(input_dir)
@@ -17,7 +19,9 @@ def load_all_jsons(input_dir, output_dir):
             job_title TEXT,
             company TEXT,
             description TEXT,
-            tech_stack TEXT
+            tech_stack TEXT,
+            content_hash TEXT,
+            quality TEXT
         )
     """)
 
@@ -27,20 +31,27 @@ def load_all_jsons(input_dir, output_dir):
         total += 1
         try:
             data = json.loads(json_file.read_text(encoding="utf-8"))
+
+            hash_input = f"{data['job_title']}|{data['company']}|{data['description']}"
+            content_hash = hashlib.sha256(hash_input.encode()).hexdigest()
+
             cursor.execute("""
-                INSERT OR IGNORE INTO job_listings (source_id, job_title, company, description, tech_stack)
-                VALUES (?, ?, ?, ?, ?)
-            """, (data["source_id"], data["job_title"], data["company"], data["description"], None))
+                INSERT OR IGNORE INTO job_listings (source_id, job_title, company, description, tech_stack, content_hash, quality)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (data["source_id"], data["job_title"], data["company"], data["description"], None, content_hash, None))
             
             if cursor.rowcount > 0:
                 print(f"✅ Inserted: {json_file.name}")
+                logging.info(f"Inserted: {json_file.name}")
                 inserted += 1
             else:
                 print(f"⏭️ Skipped (duplicate): {json_file.name}")
+                logging.warning(f"Skipped duplicate: {json_file.name}")
                 skipped += 1
 
         except Exception as e:
             print(f"❌ Failed to insert {json_file.name}: {e}")
+            logging.error(f"Failed to process {json_file.name}: {e}")
             skipped += 1
     conn.commit()
     conn.close()
