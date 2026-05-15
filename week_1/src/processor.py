@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel
 import json
 import quopri
+import logging
 
 class JobListing(BaseModel):
     source_id: str
@@ -53,20 +54,26 @@ def process_all_html(input_dir, output_dir):
                 out_file = output_dir / (html_file.stem + ".json")
                 out_file.write_text(json.dumps(job_listing.model_dump(), ensure_ascii=False, indent=2), encoding="utf-8")
                 print(f"✅ Processed: {html_file.name}")
+                logging.info(f"Processed: {html_file.name}")
                 processed += 1
             else:
                 if not source_id:
                     print(f"⚠️ Missing source_id in: {html_file.name}")
+                    logging.warning(f"Missing source_id in: {html_file.name}")
                 if not job_title:
                     print(f"⚠️ Missing job_title in: {html_file.name}")
+                    logging.warning(f"Missing job_title in: {html_file.name}")
                 if not company:
-                    print(f"⚠️ Missing company in: {html_file.name}")  
+                    print(f"⚠️ Missing company in: {html_file.name}") 
+                    logging.warning(f"Missing company in: {html_file.name}") 
                 if not description:
                     print(f"⚠️ Missing description in: {html_file.name}")  
+                    logging.warning(f"Missing description in: {html_file.name}") 
                 skipped += 1
 
         except Exception as e:
             print(f"❌ Failed to process {html_file.name}: {e}")
+            logging.error(f"Failed to process {html_file.name}: {e}")
             skipped += 1
             
     print(f"\n📊 Silver Summary:")

@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 
 def ingest_all_mhtml(input_dir, output_dir): 
     input_dir = Path(input_dir)
@@ -19,13 +20,16 @@ def ingest_all_mhtml(input_dir, output_dir):
                 out_file = output_dir / (mhtml_file.stem + ".html")
                 out_file.write_text(html_content, encoding="utf-8")
                 print(f"✅ Extracted: {mhtml_file.name}")
+                logging.info(f"Extracted: {mhtml_file.name}")
                 extracted += 1
             else:
                 print(f"⚠️ No HTML tags found in: {mhtml_file.name}")
+                logging.warning(f"No HTML tags found in: {mhtml_file.name}")
                 failed += 1
             
         except Exception as e:
             print(f"❌ Failed to process {mhtml_file.name}: {e}")
+            logging.error(f"Failed to process {mhtml_file.name}: {e}")
             failed += 1
 
     print("\n📊 Bronze Summary:")
