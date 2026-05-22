@@ -1,7 +1,11 @@
 [project]
 name = "week-2"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+description = "Job Skill Gap Analyser"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastmcp",
+    "google-genai",
+    "python-dotenv",
+    "pydantic",
+]
