@@ -61,13 +61,18 @@ def count_tokens_fallback(text: str) -> int:
 
 
 # Prompts
-EXTRACT_SKILLS_PROMPT = """You are a resume parser. Extract ONLY the technical skills from the resume below.
+EXTRACT_SKILLS_PROMPT = EXTRACT_SKILLS_PROMPT = """You are a resume parser. Extract ONLY the technical skills from the resume below.
 
 Rules:
 - Include: programming languages, frameworks, tools, platforms, databases, cloud services, DevOps tools
 - Exclude: certifications (e.g. CCNA, AWS Certified), soft skills (leadership, management, cooking), spoken languages
-- Preserve exact compound naming — do NOT split them (e.g. C/C++ must stay as C/C++, not C and C++ separately)
+- CRITICAL: Preserve compound skills EXACTLY as written. If the resume says "C/C++", output "C/C++" as ONE item. Never split it into "C" and "C++" as two items.
+- CRITICAL: Do not alter, expand, or split any skill name. Copy it exactly as it appears.
 - Return a JSON array of strings only, no explanation, no markdown fences
+
+Examples of correct behaviour:
+- "C, C++" in resume → ["C", "C++"] (two separate items, they were listed separately)
+- "C/C++" in resume → ["C/C++"] (one item, slash means combined)
 
 Resume:
 {resume}"""
