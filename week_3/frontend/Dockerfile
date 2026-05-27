@@ -20,4 +20,4 @@ EXPOSE 8000
  
 # Run the app with uvicorn via uv
 ENTRYPOINT ["uv", "run", "uvicorn"]
-CMD ["--app-dir", "src", "--host", "0.0.0.0", "--port", "8000", "main:app"]
+CMD ["--app-dir", "src", "--host", "0.0.0.0", "--port", "8000", "app:app"]
