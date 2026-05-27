@@ -4,11 +4,13 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
+    networks:
+      - app-network
     ports:
-      - "11434:11434"           
+      - "11434:11434"
     volumes:
-      - ollama_data:/root/.ollama   
-    # GPU support feature (uncomment if you have an NVIDIA GPU)
+      - ollama_data:/root/.ollama
+    # --- GPU support (uncomment if you have NVIDIA GPU) ---
     # deploy:
     #   resources:
     #     reservations:
@@ -19,27 +21,66 @@ services:
 
   # ── Backend service ────────────────────────────────────────────────
   backend:
-    build: ./backend
-    container_name: backend
+    image: backend
+    pull_policy: build
+    build:
+      context: backend
+      dockerfile: Dockerfile
+    container_name: week_3-backend-1
+    networks:
+      - app-network
     ports:
       - "8001:8001"
-    env_file:
-      - ./backend/.env
+    secrets:
+      - google_api_key
     environment:
+      - GOOGLE_API_KEY=/run/secrets/google_api_key
+      - DB_URL=/backend/src/week_2/resources/jobs_d1.db
       - OLLAMA_HOST=http://ollama:11434
     depends_on:
       - ollama
 
   # ── Frontend service ───────────────────────────────────────────────
   frontend:
-    build: ./frontend
-    container_name: frontend
+    image: frontend
+    pull_policy: build
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    container_name: week_3-frontend-1
+    networks:
+      - app-network
     ports:
       - "8000:8000"
-    env_file:
-      - ./frontend/.env
+    secrets:
+      - google_api_key
+    environment:
+      - BACKEND_URL=http://backend:8001
     depends_on:
       - backend
 
+  # ── Landing page service ───────────────────────────────────────────
+  landing:
+    image: landing
+    pull_policy: build
+    build:
+      context: landing
+      dockerfile: Dockerfile
+    container_name: week_3-landing-1
+    networks:
+      - app-network
+    ports:
+      - "8080:8080"
+
+# ── Shared network (not host) ──────────────────────────────────────────
+networks:
+  app-network:
+    driver: bridge
+
+# ── Docker secrets (Bonus 2) ───────────────────────────────────────────
+secrets:
+  google_api_key:
+    file: ./secrets/google_api_key.txt
+
 volumes:
-  ollama_data:    # named volume so models survive container restarts
+  ollama_data:

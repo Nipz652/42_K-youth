@@ -4,4 +4,3 @@ src/__pycache__/
 .ruff_cache/
 .venv/
 clear_tech.py
-resources/

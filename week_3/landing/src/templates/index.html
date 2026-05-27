@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resume AI Pipeline</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+        crossorigin="anonymous">
+  <style>
+    :root {
+      --brand: #5c6bc0;
+      --brand-dark: #3f51b5;
+    }
+
+    body { font-family: 'Segoe UI', sans-serif; }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #1a237e 0%, #5c6bc0 100%);
+      color: #fff;
+      padding: 100px 0 80px;
+      clip-path: ellipse(120% 100% at 50% 0%);
+    }
+
+    .hero h1 { font-size: 3rem; font-weight: 800; letter-spacing: -0.02em; }
+    .hero p  { font-size: 1.2rem; opacity: 0.85; max-width: 600px; margin: 0 auto; }
+
+    .btn-brand {
+      background: #fff;
+      color: var(--brand-dark);
+      font-weight: 700;
+      border-radius: 50px;
+      padding: 12px 32px;
+    }
+
+    .btn-brand:hover { background: #e8eaf6; color: var(--brand-dark); }
+
+    /* Section headings */
+    .section-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #1a237e;
+      margin-bottom: 8px;
+    }
+
+    .section-sub { color: #6c757d; margin-bottom: 40px; }
+
+    /* Pipeline steps */
+    .step-card {
+      border: none;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+      padding: 28px;
+      height: 100%;
+      transition: transform 0.2s;
+    }
+
+    .step-card:hover { transform: translateY(-4px); }
+    .step-number {
+      width: 40px; height: 40px;
+      background: var(--brand);
+      color: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1rem;
+      margin-bottom: 16px;
+    }
+
+    /* Feature icons */
+    .feature-icon {
+      font-size: 2.4rem;
+      margin-bottom: 12px;
+    }
+
+    /* Tech stack badges */
+    .tech-badge {
+      display: inline-block;
+      background: #e8eaf6;
+      color: #3949ab;
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin: 4px;
+    }
+
+    /* How to use steps */
+    .how-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .how-step-num {
+      width: 36px; height: 36px; flex-shrink: 0;
+      background: var(--brand);
+      color: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+    }
+
+    /* Code block */
+    pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border-radius: 12px;
+      padding: 20px;
+      font-size: 0.85rem;
+      overflow-x: auto;
+    }
+
+    /* Footer */
+    footer { background: #1a237e; color: rgba(255,255,255,0.7); }
+    footer a { color: rgba(255,255,255,0.9); }
+  </style>
+</head>
+<body>
+
+<!-- ── Hero ─────────────────────────────────────────────────────────── -->
+<section class="hero text-center">
+  <div class="container">
+    <p class="text-uppercase fw-semibold mb-3" style="letter-spacing:.2em;opacity:.7">
+      AI-Powered Career Tool
+    </p>
+    <h1>Resume Skill Gap Analyser</h1>
+    <p class="mt-3 mb-5">
+      Upload your resume, let AI extract your skills, and instantly discover
+      what the job market demands that you don't have yet.
+    </p>
+    <a href="http://localhost:8000" class="btn btn-brand me-3">💬 Try the Chatbot</a>
+    <a href="http://localhost:8000/stats" class="btn btn-outline-light" style="border-radius:50px;padding:12px 32px;">
+      📊 View Job Stats
+    </a>
+  </div>
+</section>
+
+<!-- ── Pipeline Overview ─────────────────────────────────────────────── -->
+<section class="py-5 bg-white">
+  <div class="container">
+    <div class="text-center mb-5">
+      <div class="section-title">How the Pipeline Works</div>
+      <p class="section-sub">Four stages from raw job data to personalised skill gap report</p>
+    </div>
+    <div class="row g-4">
+
+      <div class="col-md-3">
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <h6 class="fw-bold">Data Collection</h6>
+          <p class="text-muted small">Job listings are scraped and stored in a SQLite database with descriptions and metadata.</p>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <h6 class="fw-bold">AI Tagging</h6>
+          <p class="text-muted small">Gemini AI reads each job description in batches and extracts the required tech stack automatically.</p>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <h6 class="fw-bold">Resume Parsing</h6>
+          <p class="text-muted small">Your resume (PDF or text) is parsed by AI to extract your current technical skills accurately.</p>
+        </div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="step-card">
+          <div class="step-number">4</div>
+          <h6 class="fw-bold">Gap Analysis</h6>
+          <p class="text-muted small">A deterministic set subtraction finds exactly what skills jobs require that your resume doesn't have.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Features ──────────────────────────────────────────────────────── -->
+<section class="py-5" style="background:#f8f9ff">
+  <div class="container">
+    <div class="text-center mb-5">
+      <div class="section-title">Features</div>
+      <p class="section-sub">Everything you need to understand your position in the job market</p>
+    </div>
+    <div class="row g-4 text-center">
+
+      <div class="col-md-4">
+        <div class="feature-icon">🔒</div>
+        <h6 class="fw-bold">Jailbreak Protection</h6>
+        <p class="text-muted small">Resume inputs are scanned for prompt injection attempts before reaching the AI model.</p>
+      </div>
+
+      <div class="col-md-4">
+        <div class="feature-icon">📄</div>
+        <h6 class="fw-bold">PDF Upload</h6>
+        <p class="text-muted small">Upload your resume as a PDF — text is extracted client-side and sent securely to the backend.</p>
+      </div>
+
+      <div class="col-md-4">
+        <div class="feature-icon">📊</div>
+        <h6 class="fw-bold">Demand Statistics</h6>
+        <p class="text-muted small">See which missing skills are most in-demand, with charts showing real distribution from job data.</p>
+      </div>
+
+      <div class="col-md-4">
+        <div class="feature-icon">🔁</div>
+        <h6 class="fw-bold">Deterministic Results</h6>
+        <p class="text-muted small">Gap analysis uses exact set subtraction — not AI judgement — so results are consistent every run.</p>
+      </div>
+
+      <div class="col-md-4">
+        <div class="feature-icon">⚡</div>
+        <h6 class="fw-bold">Batch Processing</h6>
+        <p class="text-muted small">Jobs are tagged in batches with automatic retry and rate-limit handling for reliability.</p>
+      </div>
+
+      <div class="col-md-4">
+        <div class="feature-icon">🐳</div>
+        <h6 class="fw-bold">Fully Containerised</h6>
+        <p class="text-muted small">Frontend, backend, and LLM service each run in isolated Docker containers with a shared network.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── How to Build ───────────────────────────────────────────────────── -->
+<section class="py-5 bg-white">
+  <div class="container">
+    <div class="text-center mb-5">
+      <div class="section-title">How to Build & Run</div>
+      <p class="section-sub">Get the full stack running in minutes</p>
+    </div>
+    <div class="row">
+      <div class="col-lg-6">
+
+        <div class="how-step">
+          <div class="how-step-num">1</div>
+          <div>
+            <strong>Clone the repository</strong>
+            <pre class="mt-2">git clone &lt;your-repo-url&gt;
+cd week_3</pre>
+          </div>
+        </div>
+
+        <div class="how-step">
+          <div class="how-step-num">2</div>
+          <div>
+            <strong>Create secrets file</strong>
+            <pre class="mt-2">mkdir secrets
+echo "your_google_api_key" > secrets/google_api_key.txt</pre>
+          </div>
+        </div>
+
+        <div class="how-step">
+          <div class="how-step-num">3</div>
+          <div>
+            <strong>Build and start all services</strong>
+            <pre class="mt-2">docker compose up --build</pre>
+          </div>
+        </div>
+
+        <div class="how-step">
+          <div class="how-step-num">4</div>
+          <div>
+            <strong>Pull the LLM model (first run only)</strong>
+            <pre class="mt-2">docker exec -it ollama ollama pull llama3.1</pre>
+          </div>
+        </div>
+
+      </div>
+      <div class="col-lg-6">
+        <div class="how-step">
+          <div class="how-step-num">5</div>
+          <div>
+            <strong>Tag the job database</strong>
+            <pre class="mt-2">docker exec -it week_3-backend-1 \
+  uv run python src/week_2/tag_data.py</pre>
+          </div>
+        </div>
+
+        <div class="how-step">
+          <div class="how-step-num">6</div>
+          <div>
+            <strong>Access the services</strong>
+            <pre class="mt-2">Chatbot:    http://localhost:8000
+Stats:      http://localhost:8000/stats
+Backend:    http://localhost:8001
+Landing:    http://localhost:8080</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Tech Stack ─────────────────────────────────────────────────────── -->
+<section class="py-5" style="background:#f8f9ff">
+  <div class="container text-center">
+    <div class="section-title mb-2">Built With</div>
+    <p class="section-sub">Modern Python stack, containerised end to end</p>
+    <div>
+      <span class="tech-badge">Python 3.12</span>
+      <span class="tech-badge">FastAPI</span>
+      <span class="tech-badge">Uvicorn</span>
+      <span class="tech-badge">Jinja2</span>
+      <span class="tech-badge">Bootstrap 5</span>
+      <span class="tech-badge">Charts.js</span>
+      <span class="tech-badge">Google Gemini</span>
+      <span class="tech-badge">FastMCP</span>
+      <span class="tech-badge">SQLite</span>
+      <span class="tech-badge">Docker</span>
+      <span class="tech-badge">Ollama</span>
+      <span class="tech-badge">PDF.js</span>
+      <span class="tech-badge">uv</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────── -->
+<footer class="py-4 text-center">
+  <div class="container">
+    <p class="mb-1">Resume Skill Gap Analyser · Week 3 Project</p>
+    <small>
+      <a href="http://localhost:8000" class="me-3">Chatbot</a>
+      <a href="http://localhost:8000/stats" class="me-3">Stats</a>
+      <a href="http://localhost:8001/docs">API Docs</a>
+    </small>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+        crossorigin="anonymous"></script>
+</body>
+</html>

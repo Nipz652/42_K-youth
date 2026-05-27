@@ -1,20 +1,19 @@
-import asyncio
 import os
 import sys
+import sqlite3
 import tempfile
 from pathlib import Path
+
+WEEK2_DIR = Path(__file__).parent / "week_2"
+sys.path.insert(0, str(WEEK2_DIR))
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from find_skil_gaps import _find_skill_gaps_async, SkillGapResult, DailyQuotaExceededError
 
 load_dotenv()
-
-# ── Add week_2 folder to path so we can import find_skil_gaps ──────────
-WEEK2_DIR = Path(__file__).parent / "week_2"
-sys.path.insert(0, str(WEEK2_DIR))
-
-from find_skil_gaps import find_skill_gaps, SkillGapResult  # noqa: E402
 
 # ── App setup ───────────────────────────────────────────────────────────
 app = FastAPI()
@@ -38,19 +37,6 @@ def health():
 # ── Chat endpoint ────────────────────────────────────────────────────────
 @app.post("/chat")
 async def chat(request: Request):
-    """
-    Accepts JSON:
-    {
-        "message": "user text",
-        "pdf_text": "extracted PDF text or null"
-    }
-
-    Returns:
-    {
-        "reply": "skill gap analysis result"
-    }
-    """
-    # Parse body
     try:
         body = await request.json()
     except Exception:
@@ -60,34 +46,38 @@ async def chat(request: Request):
     pdf_text: str | None = body.get("pdf_text", None)
 
     if not message and not pdf_text:
-        return JSONResponse(
-            status_code=400,
-            content={"error": "No message or PDF text provided"}
-        )
+        return JSONResponse(status_code=400, content={"error": "No message or PDF provided"})
 
-    # Use PDF text if uploaded, otherwise treat the message as resume content
     resume_text = pdf_text if pdf_text else message
 
-    # Write to temp file — find_skill_gaps expects a file path
+    # ← ADD THIS: log what we received
+    print(f"Received message: '{message[:100]}'")
+    print(f"PDF text present: {pdf_text is not None}")
+    print(f"Resume text length: {len(resume_text)}")
+
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=".txt",
-            delete=False,
-            encoding="utf-8"
+            mode="w", suffix=".txt", delete=False, encoding="utf-8"
         ) as tmp:
             tmp.write(resume_text)
             tmp_path = tmp.name
 
-        # Call week 2 function (it runs its own asyncio.run internally)
-        result: SkillGapResult = find_skill_gaps(tmp_path, DB_URL)
-
-    except Exception as e:
+        print(f"Temp file created: {tmp_path}")
+        result = await _find_skill_gaps_async(tmp_path, DB_URL)
+        print(f"Result gaps: {result.gaps}")
+        print(f"Result skill_demand: {result.skill_demand}")
+        
+    except DailyQuotaExceededError as e:
         return JSONResponse(
-            status_code=500,
-            content={"error": f"Processing failed: {str(e)}"}
+            status_code=429,
+            content={"error": str(e)}
         )
+    except Exception as e:
+        # ← ADD THIS: print the full traceback
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": f"Processing failed: {str(e)}"})
     finally:
         if tmp_path:
             try:
@@ -95,37 +85,25 @@ async def chat(request: Request):
             except Exception:
                 pass
 
-    # ── Format reply ────────────────────────────────────────────────────
+    # ← ADD THIS: guard against empty result
+    if result is None:
+        return JSONResponse(status_code=500, content={"error": "No result returned"})
+
     if not result.gaps:
-        reply = (
-            "Great news! No skill gaps found — "
-            "your profile matches the job requirements well."
-        )
+        reply = "Great news! No skill gaps found."
     else:
-        # Top 5 most demanded gap skills
-        top_skills = sorted(
-            result.skill_demand.items(),
-            key=lambda x: -x[1]
-        )[:5]
-
-        top_str = ", ".join(
-            f"{skill} ({count} job{'s' if count > 1 else ''})"
-            for skill, count in top_skills
-        )
-
+        top_skills = sorted(result.skill_demand.items(), key=lambda x: -x[1])[:5]
+        top_str = ", ".join(f"{s} ({c} job{'s' if c > 1 else ''})" for s, c in top_skills)
         reply = (
-            f"I found {len(result.gaps)} skill gap(s) based on current job listings.\n\n"
+            f"I found {len(result.gaps)} skill gap(s).\n\n"
             f"Missing skills: {', '.join(result.gaps)}\n\n"
-            f"Most in-demand gaps: {top_str}\n\n"
-            f"Most wanted: {result.most_wanted}\n"
-            f"Demand range: {result.demand_range}"
+            f"Most in-demand: {top_str}"
         )
 
     return JSONResponse(content={"reply": reply})
 
 
 # ── Database visualisation endpoints (Bonus) ─────────────────────────
-import sqlite3
 
 def get_db():
     return sqlite3.connect(DB_URL)

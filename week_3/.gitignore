@@ -7,6 +7,7 @@ env/
 .env
 backend/.env
 frontend/.env
+landing/.env
 
 # Python cache
 __pycache__/
@@ -33,3 +34,12 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
+
+# Docker secrets — never commit actual secret files
+secrets/*.txt
+secrets/*.key
+secrets/*.pem
+secrets/
+
+# Keep the README so people know the folder exists
+!secrets/README.md

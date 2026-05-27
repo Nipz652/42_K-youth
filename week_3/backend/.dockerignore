@@ -23,3 +23,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Secrets never get baked into the image
+secrets/
+
+src/week_2/.venv/
+src/week_2/.env
+src/week_2/.gitignore
+src/week_2/rate_limit.txt
+src/week_2/data/

@@ -3,34 +3,44 @@ import os
 import re
 import time
 import json
-import ast
+import sqlite3
 from typing import List
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from fastmcp import Client
 from google import genai
 
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
 MAX_RETRIES = 5
 RETRY_DELAY = 5.0
 BATCH_SIZE = 10
 
+# ---------------------------------------------------------------------------
+# Pydantic models
+# ---------------------------------------------------------------------------
 class SkillStats(BaseModel):
     skill: str
-    job_count: int           
+    job_count: int
     demand_pct: float        # % of jobs requiring this skill
-    demand_level: str        # "High" / "Medium" / "Low" 
+    demand_level: str        # "High" / "Medium" / "Low"
 
 class SkillGapResult(BaseModel):
     gaps: List[str]
     tokens: int = 0
     time_ms: float = 0.0
     skill_demand: dict = {}
-    statistics: List[SkillStats] = []   # ← richer stats
-    most_wanted: str = ""               # single most demanded gap skill
-    demand_range: str = ""  
+    statistics: List[SkillStats] = []
+    most_wanted: str = ""
+    demand_range: str = ""
+
+class DailyQuotaExceededError(Exception):
+    pass
 
 
+# ---------------------------------------------------------------------------
 # Jailbreak / input sanitisation
+# ---------------------------------------------------------------------------
 JAILBREAK_PATTERNS = [
     r"ignore (all |previous |above |prior )?instructions?",
     r"forget (everything|all|your instructions?)",
@@ -55,13 +65,17 @@ def is_jailbreak(text: str) -> bool:
     return False
 
 
+# ---------------------------------------------------------------------------
 # Token helpers
+# ---------------------------------------------------------------------------
 def count_tokens_fallback(text: str) -> int:
     return len(text.split()) * 4
 
 
+# ---------------------------------------------------------------------------
 # Prompts
-EXTRACT_SKILLS_PROMPT = EXTRACT_SKILLS_PROMPT = """You are a resume parser. Extract ONLY the technical skills from the resume below.
+# ---------------------------------------------------------------------------
+EXTRACT_SKILLS_PROMPT = """You are a resume parser. Extract ONLY the technical skills from the resume below.
 
 Rules:
 - Include: programming languages, frameworks, tools, platforms, databases, cloud services, DevOps tools
@@ -77,19 +91,16 @@ Examples of correct behaviour:
 Resume:
 {resume}"""
 
+
+# ---------------------------------------------------------------------------
+# Invalid skill filter
+# ---------------------------------------------------------------------------
 INVALID_SKILLS = {"not specified", "n/a", "none", "not mentioned", "not available"}
 
-def build_demand_map(tech_stacks: List[str]) -> dict:
-    demand: dict = {}
-    for stack in tech_stacks:
-        for skill in stack.split(","):
-            skill = skill.strip().lower()
-            if skill and skill not in INVALID_SKILLS:  
-                demand[skill] = demand.get(skill, 0) + 1
-    return demand
 
-
+# ---------------------------------------------------------------------------
 # Parse JSON array safely from model response
+# ---------------------------------------------------------------------------
 def parse_json_list(text: str) -> List[str]:
     text = text.strip()
     text = re.sub(r"^```[a-z]*\n?", "", text)
@@ -98,24 +109,42 @@ def parse_json_list(text: str) -> List[str]:
     return json.loads(text)
 
 
+# ---------------------------------------------------------------------------
 # Build demand map: skill -> number of jobs mentioning it
+# ---------------------------------------------------------------------------
 def build_demand_map(tech_stacks: List[str]) -> dict:
     demand: dict = {}
     for stack in tech_stacks:
         for skill in stack.split(","):
             skill = skill.strip().lower()
-            if skill:
+            if skill and skill not in INVALID_SKILLS:
                 demand[skill] = demand.get(skill, 0) + 1
     return demand
 
 
+# ---------------------------------------------------------------------------
+# Fetch tech stacks directly from SQLite (no MCP)
+# ---------------------------------------------------------------------------
+def fetch_tech_stacks(db_url: str) -> List[str]:
+    with sqlite3.connect(db_url) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT tech_stack FROM jobs "
+            "WHERE tech_stack IS NOT NULL AND tech_stack != ''"
+        )
+        rows = cursor.fetchall()
+    return [row[0] for row in rows]
+
+
+# ---------------------------------------------------------------------------
 # Gemini call with retry
+# ---------------------------------------------------------------------------
 async def call_gemini(gemini, prompt: str, label: str) -> tuple:
     """Returns (response_text, tokens_used)."""
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             response = await gemini.aio.models.generate_content(
-                model="gemini-2.5-flash-lite",
+                model="gemini-3.1-flash-lite",
                 contents=prompt,
             )
             response_text = response.text.strip()
@@ -131,9 +160,23 @@ async def call_gemini(gemini, prompt: str, label: str) -> tuple:
             return response_text, tokens
 
         except Exception as e:
+            error_str = str(e)
+
+            # ── Detect daily quota exhaustion — stop retrying immediately ──
+            is_daily_quota = (
+                "PerDay" in error_str or
+                "per_day" in error_str.lower() or
+                "GenerateRequestsPerDay" in error_str
+            )
+
+            if "429" in error_str and is_daily_quota:
+                raise DailyQuotaExceededError(
+                    "Daily API quota exceeded. Please try again tomorrow or check "
+                    "your quota at https://ai.dev/rate-limit"
+                )
+
             print(f"Attempt {attempt} failed ({label}): {e}")
             if attempt < MAX_RETRIES:
-                error_str = str(e)
                 match = re.search(r"retry in (\d+(?:\.\d+)?)s", error_str, re.IGNORECASE)
                 wait = float(match.group(1)) + 2 if match else RETRY_DELAY
                 print(f"Retrying in {wait:.0f}s...")
@@ -141,8 +184,52 @@ async def call_gemini(gemini, prompt: str, label: str) -> tuple:
             else:
                 raise
 
+# ---------------------------------------------------------------------------
+# Build statistics
+# ---------------------------------------------------------------------------
+def build_statistics(gaps: List[str], demand_map: dict, total_jobs: int) -> tuple:
+    stats = []
+    counts = [demand_map.get(skill, 0) for skill in gaps]
 
+    if not counts:
+        return [], "", ""
+
+    max_count = max(counts)
+    high_threshold = max_count * 0.66
+    mid_threshold = max_count * 0.33
+
+    for skill, count in zip(gaps, counts):
+        pct = round((count / total_jobs) * 100, 1)
+        if count >= high_threshold:
+            level = "High"
+        elif count >= mid_threshold:
+            level = "Medium"
+        else:
+            level = "Low"
+
+        stats.append(SkillStats(
+            skill=skill,
+            job_count=count,
+            demand_pct=pct,
+            demand_level=level,
+        ))
+
+    stats.sort(key=lambda x: -x.job_count)
+
+    most_wanted = stats[0].skill if stats else ""
+    top = stats[0]
+    bottom = stats[-1]
+    demand_range = (
+        f"{top.skill} ({top.job_count} jobs) vs "
+        f"{bottom.skill} ({bottom.job_count} jobs)"
+    )
+
+    return stats, most_wanted, demand_range
+
+
+# ---------------------------------------------------------------------------
 # Main async logic
+# ---------------------------------------------------------------------------
 async def _find_skill_gaps_async(input_file_path: str, db_url: str) -> SkillGapResult:
     load_dotenv()
     api_key = os.getenv("GOOGLE_API_KEY")
@@ -170,24 +257,20 @@ async def _find_skill_gaps_async(input_file_path: str, db_url: str) -> SkillGapR
         response_text, tokens = await call_gemini(gemini, prompt, "resume extraction")
         total_tokens += tokens
         candidate_skills = [s.strip().lower() for s in parse_json_list(response_text)]
+    except DailyQuotaExceededError as e:
+        print(f"Quota error: {e}")
+        raise   # ← bubble up to app.py so user gets a clear message
     except Exception as e:
         print(f"Could not extract resume skills: {e}")
         return SkillGapResult(gaps=[])
 
     print(f"Candidate skills: {candidate_skills}")
 
-    # 4. Fetch job tech stacks via MCP
-    os.environ["DB_PATH"] = db_url
-    mcp_client = Client("db_server.py")
-
+    # 4. Fetch job tech stacks directly from SQLite
     try:
-        async with mcp_client:
-            result = await mcp_client.call_tool("get_tech_stacks", {})
-            # call_tool returns a CallToolResult; extract and parse the text
-            raw = result.content[0].text
-            tech_stacks = ast.literal_eval(raw)
+        tech_stacks = fetch_tech_stacks(db_url)
     except Exception as e:
-        print(f"Failed to fetch tech stacks via MCP: {e}")
+        print(f"Failed to fetch tech stacks from DB: {e}")
         return SkillGapResult(gaps=[])
 
     if not tech_stacks:
@@ -215,6 +298,9 @@ async def _find_skill_gaps_async(input_file_path: str, db_url: str) -> SkillGapR
             total_tokens += tokens
             normalised_batch = [s.strip().lower() for s in parse_json_list(response_text)]
             normalised_job_skills.extend(normalised_batch)
+        except DailyQuotaExceededError as e:
+            print(f"Quota error: {e}")
+            raise   # ← bubble up immediately, stop all batches
         except Exception as e:
             print(f"Normalisation batch {i // BATCH_SIZE} failed, using raw values: {e}")
             normalised_job_skills.extend(batch)
@@ -234,58 +320,26 @@ async def _find_skill_gaps_async(input_file_path: str, db_url: str) -> SkillGapR
     elapsed = (time.time() - start_time) * 1000
 
     return SkillGapResult(
-    gaps=gaps,
-    tokens=total_tokens,
-    time_ms=round(elapsed, 3),
-    skill_demand=gap_demand,
-    statistics=statistics,
-    most_wanted=most_wanted,
-    demand_range=demand_range,
+        gaps=gaps,
+        tokens=total_tokens,
+        time_ms=round(elapsed, 3),
+        skill_demand=gap_demand,
+        statistics=statistics,
+        most_wanted=most_wanted,
+        demand_range=demand_range,
     )
 
 
+# ---------------------------------------------------------------------------
 # Public sync wrapper — matches required signature exactly
+# ---------------------------------------------------------------------------
 def find_skill_gaps(input_file_path: str, db_url: str) -> SkillGapResult:
     return asyncio.run(_find_skill_gaps_async(input_file_path, db_url))
 
-def build_statistics(gaps: List[str], demand_map: dict, total_jobs: int) -> tuple:
-    stats = []
-    counts = [demand_map.get(skill, 0) for skill in gaps]
 
-    if not counts:
-        return [], "", ""
-
-    max_count = max(counts)
-    min_count = min(counts)
-    high_threshold = max_count * 0.66
-    mid_threshold = max_count * 0.33
-
-    for skill, count in zip(gaps, counts):
-        pct = round((count / total_jobs) * 100, 1)
-        if count >= high_threshold:
-            level = "High"
-        elif count >= mid_threshold:
-            level = "Medium"
-        else:
-            level = "Low"
-
-        stats.append(SkillStats(
-            skill=skill,
-            job_count=count,
-            demand_pct=pct,
-            demand_level=level,
-        ))
-
-    # Sort by demand descending
-    stats.sort(key=lambda x: -x.job_count)
-
-    most_wanted = stats[0].skill if stats else ""
-    top = stats[0]
-    bottom = stats[-1]
-    demand_range = f"{top.skill} ({top.job_count} jobs) vs {bottom.skill} ({bottom.job_count} jobs)"
-
-    return stats, most_wanted, demand_range
-
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     result = find_skill_gaps("resources/resume_d3.txt", "resources/jobs_d1.db")
 
