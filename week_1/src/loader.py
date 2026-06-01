@@ -14,7 +14,7 @@ def load_all_jsons(input_dir, output_dir):
     cursor = conn.cursor()
 
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS job_listings (
+        CREATE TABLE IF NOT EXISTS jobs (
             source_id TEXT PRIMARY KEY,
             job_title TEXT,
             company TEXT,
@@ -36,7 +36,7 @@ def load_all_jsons(input_dir, output_dir):
             content_hash = hashlib.sha256(hash_input.encode()).hexdigest()
 
             cursor.execute("""
-                INSERT OR IGNORE INTO job_listings (source_id, job_title, company, description, tech_stack, content_hash, quality)
+                INSERT OR IGNORE INTO jobs (source_id, job_title, company, description, tech_stack, content_hash, quality)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (data["source_id"], data["job_title"], data["company"], data["description"], None, content_hash, None))
             
